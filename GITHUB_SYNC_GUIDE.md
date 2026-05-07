@@ -4,6 +4,8 @@
 
 本文档详细记录了将 Tabbit2API 项目同步到 GitHub 的完整过程。
 
+**仓库地址**: https://github.com/hoinata/tabbit2api
+
 ## 操作步骤
 
 ### 1. 初始化 Git 仓库
