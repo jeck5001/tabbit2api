@@ -65,7 +65,26 @@ python tabbit2api.py
 
 ## 🔧 配置说明
 
-首次启动会自动生成 `config.json` 文件。主要配置项：
+### 配置文件自动生成
+
+项目启动时会自动检查并生成配置文件：
+
+1. 如果 `config.json` 不存在 → 自动使用默认配置创建新文件
+2. 如果 `config.json` 已存在 → 加载并与默认配置合并
+
+### 配置文件示例
+
+项目提供了 `config.json.example` 作为配置参考，你可以手动创建配置：
+
+```bash
+# 复制示例配置
+cp config.json.example config.json
+
+# 编辑配置（添加 Tabbit Token）
+vim config.json
+```
+
+### 主要配置项
 
 | 配置项 | 路径 | 默认值 | 说明 |
 |--------|------|--------|------|
@@ -75,6 +94,23 @@ python tabbit2api.py
 | Client ID | `tabbit.client_id` | `2dd8eb4c1ed9c344d173` | 客户端标识 |
 | 代理 API Key | `proxy.api_key` | 空 | 全局 API Key（可选） |
 | 系统提示词 | `proxy.system_prompt` | 空 | 全局注入的系统提示（可选） |
+
+### 添加 Tabbit Token
+
+在 `tokens` 数组中添加你的 Tabbit 账户 Token：
+
+```json
+{
+  "tokens": [
+    {
+      "id": "your-token-id",
+      "name": "my-account",
+      "value": "<your-tabbit-access-token>",
+      "enabled": true
+    }
+  ]
+}
+```
 
 ## 🐳 Docker 部署指南
 
