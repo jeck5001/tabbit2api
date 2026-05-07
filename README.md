@@ -344,3 +344,7 @@ Tabbit2API 可以作为自定义模型添加到 Trae 中使用。
 ## 📄 许可证
 
 本项目基于 [MIT License](LICENSE) 开源。
+
+## 🙏 参考项目
+
+本项目参考了 [hih24337/tabb2](https://github.com/hih24337/tabb2) 的设计思路和实现方式。
