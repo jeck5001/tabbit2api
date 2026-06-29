@@ -1,0 +1,44 @@
+# NAS 部署用 docker-compose 文件
+# 不在本地构建，直接从 GitHub Container Registry (GHCR) 拉取 Actions 构建好的镜像
+#
+# 使用前：
+#   1. 把下面的 image 改成你自己的镜像地址（默认已填好 jeck5001/tabbit2api）
+#   2. 在 NAS 上创建数据目录：  mkdir -p ./data
+#   3. 启动：                  docker compose -f docker-compose.deploy.yml up -d
+#   4. 首次启动后访问 http://<NAS_IP>:8800/admin 配置管理密码与 token
+#
+# 更新镜像：
+#   docker compose -f docker-compose.deploy.yml pull
+#   docker compose -f docker-compose.deploy.yml up -d
+
+services:
+  tabbit2api:
+    image: ghcr.io/jeck5001/tabbit2api:latest
+    container_name: tabbit2api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8800}:8800"
+    volumes:
+      # 宿主机目录挂载：config.json 与运行数据持久化到 NAS 本地 ./data 目录
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+      - PYTHONUNBUFFERED=1
+    networks:
+      - tabbit2api_net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8800/v1/models')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+networks:
+  tabbit2api_net:
+    driver: bridge
