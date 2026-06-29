@@ -405,16 +405,16 @@ function showGoogleLogin() {
           <div class="rounded-lg bg-blue-950/40 border border-blue-900/50 p-3">
             <p class="text-xs text-blue-300 font-medium mb-1.5">操作步骤</p>
             <ol class="text-xs text-zinc-400 space-y-1 list-decimal list-inside">
-              <li>点击下方按钮，弹出 Google 登录窗口</li>
-              <li>在弹窗中 <b class="text-zinc-300">先按 F12</b> 打开开发者工具，切到 <b class="text-zinc-300">Network</b> 标签</li>
-              <li>选择 Google 账号完成登录</li>
+              <li>点击下方按钮，打开 <b class="text-zinc-300">Tabbit 官方登录页</b></li>
+              <li>在新窗口中 <b class="text-zinc-300">先按 F12</b> 打开开发者工具，切到 <b class="text-zinc-300">Network</b> 标签</li>
+              <li>在该页面点击 Google 登录并完成登录</li>
               <li>在 Network 中找到 <code class="text-blue-300">transform</code> 请求，点开 → <b class="text-zinc-300">Payload</b> → 复制 <code class="text-blue-300">id_token</code> 的值</li>
               <li>粘贴到下方输入框，点提交</li>
             </ol>
           </div>
           <button onclick="openGoogleOAuth()" class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-100 px-4 py-2.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200 transition-colors">
             <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-            打开 Google 登录
+            打开 Tabbit 登录页
           </button>
           <div>
             <label class="block text-sm text-zinc-400 mb-1.5">粘贴 id_token</label>
@@ -431,21 +431,22 @@ function showGoogleLogin() {
   </div>`;
 }
 
-function openGoogleOAuth() {
-  const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: 'openid email profile',
-    response_type: 'id_token',
-    redirect_uri: 'gis_transform',
-    response_mode: 'form_post',
-    origin: TABBIT_ORIGIN,
-    display: 'popup',
-    prompt: 'select_account',
-    gsiwebsdk: 'gis_attributes',
-  });
+async function openGoogleOAuth() {
+  // Google 会校验发起页面的真实 origin 是否在 client_id 的授权来源白名单里。
+  // 这个 client_id 注册在 Tabbit 官方域名下，从本管理面板直接拉起 Google OAuth
+  // 会触发 origin_mismatch（错误 400）。因此改为打开 Tabbit 官方登录页，
+  // 在官方页面里完成 Google 登录，origin 天然匹配，再按步骤抓取 id_token。
+  // 域名优先用当前配置的 base_url（兼容国内版/国际版），取不到时回退到默认。
+  let origin = TABBIT_ORIGIN;
+  try {
+    const s = await api('/settings');
+    if (s && s.tabbit && s.tabbit.base_url) {
+      origin = s.tabbit.base_url.replace(/\/+$/, '');
+    }
+  } catch {}
   window.open(
-    'https://accounts.google.com/o/oauth2/v2/auth?' + params,
-    'google_login',
+    origin,
+    'tabbit_login',
     'width=520,height=700,left=200,top=80'
   );
 }
