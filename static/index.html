@@ -444,8 +444,9 @@ async function openGoogleOAuth() {
       origin = s.tabbit.base_url.replace(/\/+$/, '');
     }
   } catch {}
+  // 打开登录页（/login），而不是站点根地址（根地址是欢迎/下载落地页，没有登录入口）
   window.open(
-    origin,
+    origin + '/login',
     'tabbit_login',
     'width=520,height=700,left=200,top=80'
   );
