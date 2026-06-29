@@ -4,6 +4,7 @@ from typing import Optional
 
 from core.config import ConfigManager
 from core.tabbit_client import TabbitClient
+from core.tabbit_regions import resolve_tabbit_endpoint
 
 COOLDOWN_SECONDS = 300  # 5 分钟冷却
 MAX_CONSECUTIVE_ERRORS = 3
@@ -41,10 +42,11 @@ class TokenManager:
     def _get_client(self, token_info: dict) -> TabbitClient:
         tid = token_info["id"]
         if tid not in self._clients:
+            endpoint = resolve_tabbit_endpoint(self.config.get("tabbit", default={}))
             self._clients[tid] = TabbitClient(
                 token_info["value"],
-                self.config.get("tabbit", "base_url"),
-                self.config.get("tabbit", "client_id"),
+                endpoint.base_url,
+                endpoint.client_id,
             )
         return self._clients[tid]
 

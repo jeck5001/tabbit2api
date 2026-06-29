@@ -9,6 +9,7 @@
     "jwt_secret": ""
   },
   "tabbit": {
+    "region": "cn",
     "base_url": "https://web.tabbit-ai.com",
     "client_id": "2dd8eb4c1ed9c344d173"
   },

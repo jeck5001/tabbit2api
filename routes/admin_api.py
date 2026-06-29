@@ -11,6 +11,8 @@ from core.auth import create_jwt, verify_password, require_admin
 from core.token_manager import TokenManager
 from core.tabbit_client import TabbitClient
 from core.log_store import LogStore
+from core.tabbit_regions import get_region_presets, resolve_tabbit_endpoint
+from core.local_cookie_importer import import_tabbit_token_from_local_cookies
 
 logger = logging.getLogger("tabbit2openai")
 
@@ -36,6 +38,7 @@ class TokenUpdateRequest(BaseModel):
 class SettingsUpdateRequest(BaseModel):
     host: Optional[str] = None
     port: Optional[int] = None
+    region: Optional[str] = None
     base_url: Optional[str] = None
     client_id: Optional[str] = None
     api_key: Optional[str] = None
@@ -46,6 +49,10 @@ class SettingsUpdateRequest(BaseModel):
 
 class GoogleLoginRequest(BaseModel):
     id_token: str
+
+class LocalCookieImportRequest(BaseModel):
+    name: str = "Local Tabbit"
+    replace_existing: bool = True
 
 class PasswordUpdateRequest(BaseModel):
     old_password: str
@@ -128,6 +135,54 @@ def init(config: ConfigManager, token_manager: TokenManager, log_store: LogStore
         _cfg.save()
         return {"id": token_entry["id"]}
 
+    @r.post("/tokens/import-local-tabbit", dependencies=[Depends(admin_dep)])
+    async def import_local_tabbit_token(req: LocalCookieImportRequest):
+        try:
+            imported = import_tabbit_token_from_local_cookies()
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        _cfg.set_val("tabbit", "region", "global")
+        _cfg.set_val("tabbit", "base_url", "https://web.tabbit.ai")
+
+        tokens = _cfg.get("tokens", default=[])
+        token_entry = None
+        if req.replace_existing:
+            for existing in tokens:
+                if existing.get("name") == req.name:
+                    token_entry = existing
+                    break
+
+        if token_entry is None:
+            token_entry = {
+                "id": str(uuid.uuid4()),
+                "name": req.name,
+                "value": imported["token_value"],
+                "enabled": True,
+                "added_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "last_used_at": None,
+                "total_requests": 0,
+                "error_count": 0,
+                "status": "unknown",
+            }
+            tokens.append(token_entry)
+        else:
+            token_entry["value"] = imported["token_value"]
+            token_entry["enabled"] = True
+            token_entry["error_count"] = 0
+            token_entry["status"] = "unknown"
+            _tm.remove_client(token_entry["id"])
+
+        _cfg.config["tokens"] = tokens
+        _cfg.save()
+        return {
+            "ok": True,
+            "id": token_entry["id"],
+            "name": token_entry["name"],
+            "host": imported["host"],
+            "cookie_names": imported["cookie_names"],
+        }
+
     @r.put("/tokens/{token_id}", dependencies=[Depends(admin_dep)])
     async def update_token(token_id: str, req: TokenUpdateRequest):
         for t in _cfg.get("tokens", default=[]):
@@ -161,11 +216,8 @@ def init(config: ConfigManager, token_manager: TokenManager, log_store: LogStore
         if not target:
             raise HTTPException(status_code=404, detail="token not found")
 
-        client = TabbitClient(
-            target["value"],
-            _cfg.get("tabbit", "base_url"),
-            _cfg.get("tabbit", "client_id"),
-        )
+        endpoint = resolve_tabbit_endpoint(_cfg.get("tabbit", default={}))
+        client = TabbitClient(target["value"], endpoint.base_url, endpoint.client_id)
         try:
             session_id = await client.create_chat_session()
             target["status"] = "active"
@@ -184,10 +236,8 @@ def init(config: ConfigManager, token_manager: TokenManager, log_store: LogStore
         """用 Google id_token 调用 Tabbit API 换取登录凭据，返回格式化后的 token"""
         import httpx as _httpx
 
-        tabbit_url = (
-            (_cfg.get("tabbit", "base_url") or "https://web.tabbit-ai.com")
-            + "/proxy/v0/oauth/third-party-login"
-        )
+        endpoint = resolve_tabbit_endpoint(_cfg.get("tabbit", default={}))
+        tabbit_url = endpoint.base_url + "/proxy/v0/oauth/third-party-login"
         async with _httpx.AsyncClient(verify=False, timeout=15) as hc:
             resp = await hc.post(
                 tabbit_url,
@@ -195,8 +245,8 @@ def init(config: ConfigManager, token_manager: TokenManager, log_store: LogStore
                 headers={
                     "Content-Type": "application/json",
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                    "Origin": _cfg.get("tabbit", "base_url") or "https://web.tabbit-ai.com",
-                    "Referer": (_cfg.get("tabbit", "base_url") or "https://web.tabbit-ai.com") + "/login",
+                    "Origin": endpoint.base_url,
+                    "Referer": endpoint.base_url + "/login",
                 },
             )
 
@@ -247,6 +297,7 @@ def init(config: ConfigManager, token_manager: TokenManager, log_store: LogStore
         return {
             "server": _cfg.get("server"),
             "tabbit": _cfg.get("tabbit"),
+            "tabbit_regions": get_region_presets(),
             "proxy": {
                 "api_key": _cfg.get("proxy", "api_key", default=""),
                 "system_prompt": _cfg.get("proxy", "system_prompt", default=""),
@@ -257,10 +308,13 @@ def init(config: ConfigManager, token_manager: TokenManager, log_store: LogStore
 
     @r.put("/settings", dependencies=[Depends(admin_dep)])
     async def update_settings(req: SettingsUpdateRequest):
+        old_endpoint = resolve_tabbit_endpoint(_cfg.get("tabbit", default={}))
         if req.host is not None:
             _cfg.set_val("server", "host", req.host)
         if req.port is not None:
             _cfg.set_val("server", "port", req.port)
+        if req.region is not None:
+            _cfg.set_val("tabbit", "region", req.region)
         if req.base_url is not None:
             _cfg.set_val("tabbit", "base_url", req.base_url)
         if req.client_id is not None:
@@ -276,6 +330,9 @@ def init(config: ConfigManager, token_manager: TokenManager, log_store: LogStore
         if req.max_entries is not None:
             _cfg.set_val("logging", "max_entries", req.max_entries)
             _logs.resize(req.max_entries)
+        new_endpoint = resolve_tabbit_endpoint(_cfg.get("tabbit", default={}))
+        if new_endpoint != old_endpoint:
+            await _tm.close_all()
         return {"ok": True}
 
     # ── Password ──

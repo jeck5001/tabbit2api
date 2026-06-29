@@ -5,14 +5,17 @@ import secrets
 import copy
 from pathlib import Path
 
+from core.tabbit_regions import DEFAULT_CLIENT_ID, DEFAULT_REGION, CN_BASE_URL, resolve_tabbit_endpoint
+
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.json"
 
 DEFAULT_CONFIG = {
     "server": {"host": "0.0.0.0", "port": 8800},
     "admin": {"password_hash": "", "salt": "", "jwt_secret": ""},
     "tabbit": {
-        "base_url": "https://web.tabbit-ai.com",
-        "client_id": "2dd8eb4c1ed9c344d173",
+        "region": DEFAULT_REGION,
+        "base_url": CN_BASE_URL,
+        "client_id": DEFAULT_CLIENT_ID,
     },
     "tokens": [],
     "proxy": {"api_key": "", "system_prompt": ""},
@@ -23,6 +26,7 @@ DEFAULT_CONFIG = {
 ENV_VAR_MAP = {
     "TABBIT_SERVER_HOST": ("server", "host"),
     "TABBIT_SERVER_PORT": ("server", "port"),
+    "TABBIT_REGION": ("tabbit", "region"),
     "TABBIT_BASE_URL": ("tabbit", "base_url"),
     "TABBIT_CLIENT_ID": ("tabbit", "client_id"),
     "TABBIT_API_KEY": ("proxy", "api_key"),
@@ -46,6 +50,15 @@ def _apply_env_overrides(config: dict) -> dict:
                     pass
             else:
                 d[keys[-1]] = value
+    return config
+
+
+def _normalize_tabbit_config(config: dict) -> dict:
+    tabbit = config.setdefault("tabbit", {})
+    endpoint = resolve_tabbit_endpoint(tabbit)
+    tabbit["region"] = endpoint.region
+    tabbit["base_url"] = endpoint.base_url
+    tabbit["client_id"] = endpoint.client_id
     return config
 
 
@@ -77,6 +90,7 @@ class ConfigManager:
                 saved = json.load(f)
             config = _deep_merge(copy.deepcopy(DEFAULT_CONFIG), saved)
             config = _apply_env_overrides(config)
+            config = _normalize_tabbit_config(config)
             self._save(config)
             return config
 
@@ -86,12 +100,14 @@ class ConfigManager:
         config["admin"]["password_hash"] = pw_hash
         config["admin"]["salt"] = salt
         config = _apply_env_overrides(config)
+        config = _normalize_tabbit_config(config)
         self._save(config)
         return config
 
     def _save(self, config: dict | None = None):
         if config is None:
             config = self.config
+        config = _normalize_tabbit_config(config)
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2, ensure_ascii=False)
 

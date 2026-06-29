@@ -90,12 +90,37 @@ vim config.json
 |--------|------|--------|------|
 | 服务主机 | `server.host` | `0.0.0.0` | 服务监听地址 |
 | 服务端口 | `server.port` | `8800` | 服务监听端口 |
-| Tabbit 域名 | `tabbit.base_url` | `https://web.tabbit-ai.com` | 国内版域名 |
+| Tabbit 版本 | `tabbit.region` | `cn` | `cn` 国内版，`global` 国际版 |
+| Tabbit 域名 | `tabbit.base_url` | `https://web.tabbit-ai.com` | 可手动覆盖预设域名；国际版预设为 `https://web.tabbit.ai` |
 | Client ID | `tabbit.client_id` | `2dd8eb4c1ed9c344d173` | 客户端标识 |
 | 代理 API Key | `proxy.api_key` | 空 | 全局 API Key（可选） |
 | 系统提示词 | `proxy.system_prompt` | 空 | 全局注入的系统提示（可选） |
 
 ### 添加 Tabbit Token
+
+### 切换国际版 Tabbit
+
+在管理面板的 Settings 中选择“国际版”，或直接修改配置：
+
+```json
+{
+  "tabbit": {
+    "region": "global",
+    "base_url": "https://web.tabbit.ai",
+    "client_id": "2dd8eb4c1ed9c344d173"
+  }
+}
+```
+
+也可以用环境变量启动：
+
+```bash
+TABBIT_REGION=global python tabbit2api.py
+```
+
+如果国际版实际 Client ID 与默认值不同，可以继续通过 `tabbit.client_id` 或 `TABBIT_CLIENT_ID` 手动覆盖。
+
+macOS 本机运行时，也可以在管理面板 Tokens 页点击“本机 Tabbit 导入”，从已登录的 Tabbit 浏览器 Cookie 中导入 token。该功能只读取本机 `~/Library/Application Support/Tabbit/Default/Cookies` 和 macOS Keychain，不适用于 Docker/远程服务器。
 
 在 `tokens` 数组中添加你的 Tabbit 账户 Token：
 
@@ -362,7 +387,8 @@ Tabbit2API 可以作为自定义模型添加到 Trae 中使用。
 |----------|------|--------|
 | `TABBIT_SERVER_HOST` | 服务监听地址 | `0.0.0.0` |
 | `TABBIT_SERVER_PORT` | 服务监听端口 | `8800` |
-| `TABBIT_BASE_URL` | Tabbit 域名 | `https://web.tabbit-ai.com` |
+| `TABBIT_REGION` | Tabbit 版本，支持 `cn` / `global` | `cn` |
+| `TABBIT_BASE_URL` | Tabbit 域名，可覆盖区域预设 | `https://web.tabbit-ai.com` |
 | `TABBIT_CLIENT_ID` | 客户端标识 | `2dd8eb4c1ed9c344d173` |
 | `TABBIT_API_KEY` | 全局 API Key | 空 |
 | `TABBIT_SYSTEM_PROMPT` | 全局系统提示词 | 空 |

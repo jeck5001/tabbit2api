@@ -16,6 +16,7 @@ from core.config import ConfigManager
 from core.tabbit_client import TabbitClient, MODEL_MAP
 from core.token_manager import TokenManager
 from core.log_store import LogStore, LogEntry
+from core.tabbit_regions import resolve_tabbit_endpoint
 from core.claude_compat import (
     random_trigger_signal,
     map_claude_to_content,
@@ -94,10 +95,11 @@ async def _get_client_and_token(
     if not token:
         raise HTTPException(status_code=401, detail="missing token")
     if token not in _fallback_clients:
+        endpoint = resolve_tabbit_endpoint(_cfg.get("tabbit") if _cfg else {})
         _fallback_clients[token] = TabbitClient(
             token,
-            _cfg.get("tabbit", "base_url") if _cfg else None,
-            _cfg.get("tabbit", "client_id") if _cfg else None,
+            endpoint.base_url,
+            endpoint.client_id,
         )
     return _fallback_clients[token], "bearer", ""
 
