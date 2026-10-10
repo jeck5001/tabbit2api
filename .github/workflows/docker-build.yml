@@ -56,3 +56,10 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # 关闭 provenance/SBOM attestation。
+          # 开启时 buildx 会额外生成一个 platform 为 unknown/unknown 的 attestation manifest，
+          # 使镜像变成 OCI image index；Docker Engine 23.0 之前的客户端（多数 NAS 自带的
+          # Container Manager / Docker 基于 20.10.x）拉取时会报
+          # "no match for platform in manifest"。单架构 amd64 场景下关掉即可产出普通 manifest。
+          provenance: false
+          sbom: false
