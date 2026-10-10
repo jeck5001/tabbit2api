@@ -30,25 +30,27 @@ ghcr.io/jeck5001/tabbit2api:latest
 
 工作流使用 GitHub 自动注入的 `GITHUB_TOKEN` 登录 GHCR，无需手动配置 secrets。
 
-### 让镜像可被 NAS 拉取（重要）
+### 镜像可见性：已设为 public，NAS 无需登录
 
-GHCR 镜像默认是 **私有** 的。首次构建成功后，需要做一次设置才能在 NAS 上顺利拉取，二选一：
+`ghcr.io/jeck5001/tabbit2api` 这个 package 当前是 **public**，已验证可以匿名拉取，所以 NAS 上不需要 `docker login`，直接 `pull` 即可。
 
-**方案 A：把镜像设为公开（最简单）**
+自行复验（下面命令能返回 tag 列表就说明是 public）：
 
-1. 打开 `https://github.com/jeck5001?tab=packages`
-2. 点进 `tabbit2api` 这个 package
-3. 右侧 "Package settings" → "Danger Zone" → "Change visibility" → 设为 **Public**
+```bash
+TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:jeck5001/tabbit2api:pull" | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+curl -s -H "Authorization: Bearer $TOKEN" https://ghcr.io/v2/jeck5001/tabbit2api/tags/list
+```
 
-设为公开后，NAS 无需登录即可拉取。
-
-**方案 B：保持私有，在 NAS 上登录后拉取**
-
-在 NAS 上执行（用一个有 `read:packages` 权限的 Personal Access Token 作为密码）：
+如果以后你把 package 改回 private，则需要在 NAS 上先登录（用一个有 `read:packages` 权限的 Personal Access Token 作为密码）：
 
 ```bash
 echo "<你的_PAT>" | docker login ghcr.io -u jeck5001 --password-stdin
 ```
+
+### 镜像为单架构 amd64
+
+工作流关闭了 provenance/SBOM attestation，产出的是普通单架构 manifest（而非 OCI image index）。这是为了兼容 NAS：Docker Engine 23.0 之前的客户端（多数 NAS 自带的 Container Manager 基于 20.10.x）拉取带 `unknown/unknown` attestation 条目的 index 会报 `no match for platform in manifest`。改动请勿随意回退。
+
 
 ---
 
@@ -164,7 +166,7 @@ PORT=9000
 ## 六、故障排查
 
 **拉取镜像报 `denied` / `unauthorized`**
-镜像还是私有的。按第一节"让镜像可被 NAS 拉取"设为公开，或在 NAS 上 `docker login ghcr.io`。
+镜像被改回私有了。按第一节"镜像可见性"复验并设为 public，或在 NAS 上 `docker login ghcr.io`。
 
 **架构不匹配 `exec format error`**
 镜像构建的是 amd64（x86_64）。如果你的 NAS 是 ARM 架构（部分群晖/威联通用 ARM CPU），需要在 `.github/workflows/docker-build.yml` 的 `platforms` 里改为或加上 `linux/arm64` 重新构建。
