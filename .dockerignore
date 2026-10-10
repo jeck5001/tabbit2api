@@ -1,0 +1,52 @@
+# 避免把无关文件和敏感文件打进镜像。
+#
+# 重要：config.json 含 Tabbit token 与管理密码哈希，绝不能进入镜像层
+# （镜像层可被任何人解包读取）。运行时配置由 /app/data/config.json 提供，
+# 通过 docker-compose 的 volume 挂载持久化，不需要烤进镜像。
+
+# ── 版本控制 ──
+.git
+.gitignore
+.github
+
+# ── 运行时数据 / 敏感配置 ──
+data/
+config.json
+config.json.*
+!config.json.example
+.env
+.env.*
+*.log
+logs/
+
+# ── Python 缓存 ──
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+*.egg-info/
+
+# ── 测试与开发文件 ──
+tests/
+environment.yml
+start_conda.py
+
+# ── 构建/部署编排文件（容器内不需要）──
+Dockerfile
+Dockerfile.local
+docker-compose.yml
+docker-compose.local.yml
+docker-compose.deploy.yml
+.dockerignore
+
+# ── 文档（运行时无需，保留 README 无必要）──
+*.md
+
+# ── 编辑器 / 系统 ──
+.idea/
+.vscode/
+.DS_Store
